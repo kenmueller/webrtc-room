@@ -14,8 +14,8 @@ const socket = io({
 })
 const connections = {}
 
-const localStreamFnQueue = []
 let localStream
+let localStreamFnQueue = []
 
 const getLocalStream = fn => {
 	localStream
@@ -28,6 +28,8 @@ const setLocalStream = stream => {
 	
 	for (const fn of localStreamFnQueue)
 		fn(stream)
+	
+	localStreamFnQueue = []
 }
 
 navigator.mediaDevices.getUserMedia(STREAM_CONSTRAINTS)
@@ -45,6 +47,18 @@ socket.on('join', async (id, createOffer) => {
 		return
 	
 	const connection = connections[id] = new RTCPeerConnection(CONNECTION_CONFIG)
+	
+	if (createOffer) {
+		const localDescription = await connection.createOffer()
+		await connection.setLocalDescription(new RTCSessionDescription(localDescription))
+		
+		socket.emit('session-description', id, localDescription)
+	}
+	
+	getLocalStream(localStream => {
+		for (const track of localStream.getTracks())
+			connection.addTrack(track, localStream)
+	})
 	
 	connection.onicecandidate = ({ candidate }) => {
 		if (!candidate)
@@ -68,26 +82,13 @@ socket.on('join', async (id, createOffer) => {
 		
 		document.getElementById('videos').append(element)
 	}
-	
-	getLocalStream(localStream => {
-		for (const track of localStream.getTracks())
-			connection.addTrack(track, localStream)
-	})
-	
-	if (!createOffer)
-		return
-	
-	const localDescription = await connection.createOffer()
-	await connection.setLocalDescription(new RTCSessionDescription(localDescription))
-	
-	socket.emit('session-description', id, localDescription)
 })
 
-socket.on('ice-candidate', async (id, candidate) => {
+socket.on('ice-candidate', (id, candidate) => {
 	const connection = connections[id]
 	
 	if (connection)
-		await connection.addIceCandidate(new RTCIceCandidate(candidate))
+		connection.addIceCandidate(new RTCIceCandidate(candidate))
 })
 
 socket.on('session-description', async (id, remoteDescription) => {
