@@ -29,12 +29,8 @@ io.on('connect', socket => {
 		socket.to(id).emit('ice-candidate', socket.id, candidate)
 	})
 	
-	socket.on('offer', (id, offer) => {
-		socket.to(id).emit('offer', socket.id, offer)
-	})
-	
-	socket.on('answer', (id, answer) => {
-		socket.to(id).emit('answer', socket.id, answer)
+	socket.on('session-description', (id, description) => {
+		socket.to(id).emit('session-description', socket.id, description)
 	})
 	
 	socket.on('disconnect', () => {

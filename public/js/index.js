@@ -77,10 +77,10 @@ socket.on('join', async (id, createOffer) => {
 	if (!createOffer)
 		return
 	
-	const offer = await connection.createOffer()
-	await connection.setLocalDescription(new RTCSessionDescription(offer))
+	const localDescription = await connection.createOffer()
+	await connection.setLocalDescription(new RTCSessionDescription(localDescription))
 	
-	socket.emit('offer', id, offer)
+	socket.emit('session-description', id, localDescription)
 })
 
 socket.on('ice-candidate', async (id, candidate) => {
@@ -90,24 +90,21 @@ socket.on('ice-candidate', async (id, candidate) => {
 		await connection.addIceCandidate(new RTCIceCandidate(candidate))
 })
 
-socket.on('offer', async (id, offer) => {
+socket.on('session-description', async (id, remoteDescription) => {
 	const connection = connections[id]
 	
 	if (!connection)
 		return
 	
-	await connection.setRemoteDescription(new RTCSessionDescription(offer))
-	const answer = await connection.createAnswer()
-	await connection.setLocalDescription(new RTCSessionDescription(answer))
+	await connection.setRemoteDescription(new RTCSessionDescription(remoteDescription))
 	
-	socket.emit('answer', id, answer)
-})
-
-socket.on('answer', async (id, answer) => {
-	const connection = connections[id]
+	if (remoteDescription.type !== 'offer')
+		return
 	
-	if (connection)
-		await connection.setRemoteDescription(new RTCSessionDescription(answer))
+	const localDescription = await connection.createAnswer()
+	await connection.setLocalDescription(new RTCSessionDescription(localDescription))
+	
+	socket.emit('session-description', id, localDescription)
 })
 
 socket.on('leave', id => {
